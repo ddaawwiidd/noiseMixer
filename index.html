@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>NoiseMixer</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app">
+      <canvas id="noiseCanvas"></canvas>
+
+      <div class="control-panel">
+        <header class="panel-header">
+          <h1>NoiseMixer</h1>
+          <button id="togglePlay" class="btn primary">Pause</button>
+        </header>
+
+        <!-- Mixer only (no modes, no motifs) -->
+        <section class="panel-section">
+          <h2>Mixer</h2>
+
+          <div class="slider-group">
+            <label for="density">Density <span id="densityValue"></span></label>
+            <input type="range" id="density" min="0" max="100" value="40" />
+          </div>
+
+          <!-- Energy can now go negative -->
+          <div class="slider-group">
+            <label for="energy">Energy <span id="energyValue"></span></label>
+            <input type="range" id="energy" min="-100" max="100" value="10" />
+          </div>
+
+          <div class="slider-group">
+            <label for="chaos">Chaos <span id="chaosValue"></span></label>
+            <input type="range" id="chaos" min="0" max="100" value="35" />
+          </div>
+
+          <div class="slider-group">
+            <label for="contrast">Contrast <span id="contrastValue"></span></label>
+            <input type="range" id="contrast" min="0" max="100" value="80" />
+          </div>
+        </section>
+
+        <!-- Palette stays -->
+        <section class="panel-section">
+          <h2>Palette</h2>
+          <div class="palette-buttons">
+            <button class="palette-swatch active" data-palette="mono" title="Mono"></button>
+            <button class="palette-swatch" data-palette="warm" title="Warm"></button>
+            <button class="palette-swatch" data-palette="neon" title="Neon"></button>
+            <button class="palette-swatch" data-palette="magenta" title="Magenta"></button>
+          </div>
+        </section>
+
+        <!-- Output with video recording -->
+        <section class="panel-section">
+          <h2>Output</h2>
+          <div class="actions">
+            <button id="captureFrame" class="btn secondary">Capture Frame</button>
+            <button id="recordVideo" class="btn secondary">Start Recording</button>
+            <button id="toggleFullscreen" class="btn secondary">Fullscreen</button>
+          </div>
+          <p class="hint">
+            Tip: negative <strong>Energy</strong> values make the mandala grow very slowly.
+          </p>
+        </section>
+      </div>
+    </div>
+
+    <script src="script.js"></script>
+  </body>
+</html>

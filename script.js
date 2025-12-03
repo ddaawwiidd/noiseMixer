@@ -1,58 +1,17 @@
 // =======================================
-// NoiseMixer — 2D Mandala + 3D Globe Switcher
+// NoiseMixer — 2D Mandala + 3D Globe Switcher (DOM-safe)
 // =======================================
 
 import * as THREE from "https://unpkg.com/three@0.162.0/build/three.module.js";
 
-// ---- DOM & HUD ----
+// ---- Global vars that will be filled after DOM is ready ----
 
-const canvas2d = document.getElementById("canvas2d");
-const canvas3d = document.getElementById("canvas3d");
-
-const sliders = {
-  density: document.getElementById("density"),
-  energy: document.getElementById("energy"),
-  chaos: document.getElementById("chaos"),
-  contrast: document.getElementById("contrast"),
-};
-const sliderLabels = {
-  density: document.getElementById("densityValue"),
-  energy: document.getElementById("energyValue"),
-  chaos: document.getElementById("chaosValue"),
-  contrast: document.getElementById("contrastValue"),
-};
-
-const state = {
-  density: parseInt(sliders.density.value, 10),
-  energy: parseInt(sliders.energy.value, 10), // -100..100
-  chaos: parseInt(sliders.chaos.value, 10),
-  contrast: parseInt(sliders.contrast.value, 10),
-};
-
-function updateSliderLabels() {
-  sliderLabels.density.textContent = state.density;
-  sliderLabels.energy.textContent = state.energy;
-  sliderLabels.chaos.textContent = state.chaos;
-  sliderLabels.contrast.textContent = state.contrast;
-}
-
-function lerp(a, b, t) {
-  return a + (b - a) * t;
-}
-
-function randomRange(min, max) {
-  return min + Math.random() * (max - min);
-}
-
-// Map energy [-100, 100] -> [0, 1]
-function getEnergyNorm() {
-  return (state.energy + 100) / 200;
-}
-
-// ---- Palette ----
+let canvas2d, canvas3d;
+let sliders = {};
+let sliderLabels = {};
+let state;
 
 let paletteName = "mono";
-
 const palettesHex = {
   mono: 0xe5e7eb,
   warm: 0xfbbf24,
@@ -60,7 +19,24 @@ const palettesHex = {
   magenta: 0xf472b6,
 };
 
-// 2D color helper
+// sizing
+let width = window.innerWidth;
+let height = window.innerHeight;
+
+function updateSize() {
+  width = window.innerWidth;
+  height = window.innerHeight;
+}
+
+function lerp(a, b, t) {
+  return a + (b - a) * t;
+}
+
+function getEnergyNorm() {
+  return (state.energy + 100) / 200; // -100..100 -> 0..1
+}
+
+// 2D palette helper
 function paletteColor2D(alpha) {
   switch (paletteName) {
     case "warm":
@@ -75,17 +51,9 @@ function paletteColor2D(alpha) {
   }
 }
 
-// ---- Shared sizing ----
-
-let width = window.innerWidth;
-let height = window.innerHeight;
-
-function updateSize() {
-  width = window.innerWidth;
-  height = window.innerHeight;
-}
-
-// ---- 2D Engine: Dot Mandala ----
+// =======================================
+// 2D MANDELA ENGINE
+// =======================================
 
 let ctx2d;
 let time2D = 0;
@@ -137,7 +105,6 @@ function drawMandala2D(dt) {
 
   const maxRadius = Math.min(width, height) * 0.48;
 
-  // growth speed scaled by dt
   const growthSpeed = lerp(5, 80, energyNorm);
   growthRadius2D += growthSpeed * dt;
 
@@ -202,7 +169,9 @@ function drawMandala2D(dt) {
   time2D += timeStep2D * dt;
 }
 
-// ---- 3D Engine: Point-Cloud Globe ----
+// =======================================
+// 3D GLOBE ENGINE
+// =======================================
 
 let renderer, scene, camera, globeGroup;
 let particleGeometry, particleMaterial, particlePoints;
@@ -375,34 +344,20 @@ function render3D(dt) {
   renderer.render(scene, camera);
 }
 
-// ---- View switching ----
+// =======================================
+// VIEW SWITCHING + LOOP + HUD
+// =======================================
 
-let activeView = "2d"; // default to 2D
+let activeView = "2d";
 let isPlaying = true;
 let lastTime = performance.now();
 let animationId = null;
 
-const viewButtons = document.querySelectorAll(".view-btn");
-
-function setView(view) {
-  activeView = view === "3d" ? "3d" : "2d";
-
-  viewButtons.forEach((btn) =>
-    btn.classList.toggle("active", btn.dataset.view === activeView)
-  );
-
-  canvas2d.classList.toggle("hidden", activeView !== "2d");
-  canvas3d.classList.toggle("hidden", activeView !== "3d");
+function getActiveCanvas() {
+  return activeView === "3d" ? canvas3d : canvas2d;
 }
 
-viewButtons.forEach((btn) => {
-  btn.addEventListener("click", () => {
-    setView(btn.dataset.view);
-  });
-});
-
-// ---- Main loop ----
-
+// main loop
 function loop(now) {
   const dt = (now - lastTime) / 1000;
   lastTime = now;
@@ -410,7 +365,7 @@ function loop(now) {
   if (isPlaying) {
     if (activeView === "2d") {
       drawMandala2D(dt);
-    } else if (activeView === "3d") {
+    } else {
       render3D(dt);
     }
   }
@@ -418,139 +373,191 @@ function loop(now) {
   animationId = requestAnimationFrame(loop);
 }
 
-// ---- Sliders & palette ----
+// =======================================
+// INIT AFTER DOM IS READY
+// =======================================
 
-Object.entries(sliders).forEach(([key, input]) => {
-  input.addEventListener("input", () => {
-    state[key] = parseInt(input.value, 10);
-    updateSliderLabels();
-  });
-});
+window.addEventListener("load", () => {
+  // Grab DOM elements safely
+  canvas2d = document.getElementById("canvas2d");
+  canvas3d = document.getElementById("canvas3d");
 
-document.querySelectorAll(".palette-swatch").forEach((swatch) => {
-  swatch.addEventListener("click", () => {
-    paletteName = swatch.dataset.palette || "mono";
-
-    document.querySelectorAll(".palette-swatch").forEach((s) =>
-      s.classList.toggle("active", s === swatch)
-    );
-
-    if (particleMaterial) {
-      particleMaterial.color.setHex(
-        palettesHex[paletteName] || palettesHex.mono
-      );
-    }
-  });
-});
-
-// ---- Play / pause ----
-
-const togglePlayBtn = document.getElementById("togglePlay");
-togglePlayBtn.addEventListener("click", () => {
-  isPlaying = !isPlaying;
-  togglePlayBtn.textContent = isPlaying ? "Pause" : "Play";
-});
-
-// ---- Capture & Recording use ACTIVE canvas ----
-
-function getActiveCanvas() {
-  return activeView === "3d" ? canvas3d : canvas2d;
-}
-
-const captureBtn = document.getElementById("captureFrame");
-captureBtn.addEventListener("click", () => {
-  const c = getActiveCanvas();
-  c.toBlob(
-    (blob) => {
-      if (!blob) return;
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-      a.download = `NoiseMixer_${activeView}_${timestamp}.png`;
-      a.click();
-      URL.revokeObjectURL(url);
-    },
-    "image/png",
-    0.95
-  );
-});
-
-const recordBtn = document.getElementById("recordVideo");
-let mediaRecorder = null;
-let recordedChunks = [];
-let isRecording = false;
-
-recordBtn.addEventListener("click", () => {
-  if (!isRecording) {
-    const c = getActiveCanvas();
-    const stream = c.captureStream(30);
-    recordedChunks = [];
-
-    try {
-      mediaRecorder = new MediaRecorder(stream, {
-        mimeType: "video/webm;codecs=vp9",
-      });
-    } catch (e) {
-      mediaRecorder = new MediaRecorder(stream);
-    }
-
-    mediaRecorder.ondataavailable = (e) => {
-      if (e.data && e.data.size > 0) {
-        recordedChunks.push(e.data);
-      }
-    };
-
-    mediaRecorder.onstop = () => {
-      const blob = new Blob(recordedChunks, { type: "video/webm" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-      a.download = `NoiseMixer_${activeView}_${timestamp}.webm`;
-      a.click();
-      URL.revokeObjectURL(url);
-    };
-
-    mediaRecorder.start();
-    isRecording = true;
-    recordBtn.textContent = "Stop Recording";
-  } else {
-    if (mediaRecorder && mediaRecorder.state !== "inactive") {
-      mediaRecorder.stop();
-    }
-    isRecording = false;
-    recordBtn.textContent = "Start Recording";
+  if (!canvas2d || !canvas3d) {
+    console.error("Canvas elements with ids canvas2d / canvas3d not found.");
+    return;
   }
-});
 
-// ---- Fullscreen ----
+  sliders = {
+    density: document.getElementById("density"),
+    energy: document.getElementById("energy"),
+    chaos: document.getElementById("chaos"),
+    contrast: document.getElementById("contrast"),
+  };
+  sliderLabels = {
+    density: document.getElementById("densityValue"),
+    energy: document.getElementById("energyValue"),
+    chaos: document.getElementById("chaosValue"),
+    contrast: document.getElementById("contrastValue"),
+  };
 
-const fullscreenBtn = document.getElementById("toggleFullscreen");
-fullscreenBtn.addEventListener("click", () => {
-  if (!document.fullscreenElement) {
-    document.documentElement.requestFullscreen().catch((err) => {
-      console.error("Fullscreen error:", err);
+  state = {
+    density: parseInt(sliders.density.value, 10),
+    energy: parseInt(sliders.energy.value, 10),
+    chaos: parseInt(sliders.chaos.value, 10),
+    contrast: parseInt(sliders.contrast.value, 10),
+  };
+
+  function updateSliderLabelsLocal() {
+    sliderLabels.density.textContent = state.density;
+    sliderLabels.energy.textContent = state.energy;
+    sliderLabels.chaos.textContent = state.chaos;
+    sliderLabels.contrast.textContent = state.contrast;
+  }
+
+  // override global function pointer with closure that uses current state
+  updateSliderLabels = updateSliderLabelsLocal;
+  updateSliderLabels();
+
+  // Slider listeners
+  Object.entries(sliders).forEach(([key, input]) => {
+    input.addEventListener("input", () => {
+      state[key] = parseInt(input.value, 10);
+      updateSliderLabels();
     });
-  } else {
-    document.exitFullscreen();
+  });
+
+  // Palette
+  document.querySelectorAll(".palette-swatch").forEach((swatch) => {
+    swatch.addEventListener("click", () => {
+      paletteName = swatch.dataset.palette || "mono";
+
+      document.querySelectorAll(".palette-swatch").forEach((s) =>
+        s.classList.toggle("active", s === swatch)
+      );
+
+      if (particleMaterial) {
+        particleMaterial.color.setHex(
+          palettesHex[paletteName] || palettesHex.mono
+        );
+      }
+    });
+  });
+
+  // View buttons
+  const viewButtons = document.querySelectorAll(".view-btn");
+  function setView(view) {
+    activeView = view === "3d" ? "3d" : "2d";
+    viewButtons.forEach((btn) =>
+      btn.classList.toggle("active", btn.dataset.view === activeView)
+    );
+    canvas2d.classList.toggle("hidden", activeView !== "2d");
+    canvas3d.classList.toggle("hidden", activeView !== "3d");
   }
-});
+  viewButtons.forEach((btn) => {
+    btn.addEventListener("click", () => setView(btn.dataset.view));
+  });
 
-// ---- Resize ----
+  // Play / pause
+  const togglePlayBtn = document.getElementById("togglePlay");
+  togglePlayBtn.addEventListener("click", () => {
+    isPlaying = !isPlaying;
+    togglePlayBtn.textContent = isPlaying ? "Pause" : "Play";
+  });
 
-window.addEventListener("resize", () => {
+  // Capture frame
+  const captureBtn = document.getElementById("captureFrame");
+  captureBtn.addEventListener("click", () => {
+    const c = getActiveCanvas();
+    c.toBlob(
+      (blob) => {
+        if (!blob) return;
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+        a.download = `NoiseMixer_${activeView}_${timestamp}.png`;
+        a.click();
+        URL.revokeObjectURL(url);
+      },
+      "image/png",
+      0.95
+    );
+  });
+
+  // Video recording
+  const recordBtn = document.getElementById("recordVideo");
+  let mediaRecorder = null;
+  let recordedChunks = [];
+  let isRecording = false;
+
+  recordBtn.addEventListener("click", () => {
+    if (!isRecording) {
+      const c = getActiveCanvas();
+      const stream = c.captureStream(30);
+      recordedChunks = [];
+
+      try {
+        mediaRecorder = new MediaRecorder(stream, {
+          mimeType: "video/webm;codecs=vp9",
+        });
+      } catch (e) {
+        mediaRecorder = new MediaRecorder(stream);
+      }
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) {
+          recordedChunks.push(e.data);
+        }
+      };
+
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(recordedChunks, { type: "video/webm" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+        a.download = `NoiseMixer_${activeView}_${timestamp}.webm`;
+        a.click();
+        URL.revokeObjectURL(url);
+      };
+
+      mediaRecorder.start();
+      isRecording = true;
+      recordBtn.textContent = "Stop Recording";
+    } else {
+      if (mediaRecorder && mediaRecorder.state !== "inactive") {
+        mediaRecorder.stop();
+      }
+      isRecording = false;
+      recordBtn.textContent = "Start Recording";
+    }
+  });
+
+  // Fullscreen
+  const fullscreenBtn = document.getElementById("toggleFullscreen");
+  fullscreenBtn.addEventListener("click", () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch((err) => {
+        console.error("Fullscreen error:", err);
+      });
+    } else {
+      document.exitFullscreen();
+    }
+  });
+
+  // Resize
+  window.addEventListener("resize", () => {
+    updateSize();
+    resize2D();
+    resize3D();
+  });
+
+  // Init everything
   updateSize();
-  resize2D();
-  resize3D();
+  init2D();
+  init3D();
+  setView("2d");
+
+  lastTime = performance.now();
+  animationId = requestAnimationFrame(loop);
 });
-
-// ---- Init ----
-
-updateSize();
-updateSliderLabels();
-init2D();
-init3D();
-setView("2d"); // start in 2D
-lastTime = performance.now();
-animationId = requestAnimationFrame(loop);

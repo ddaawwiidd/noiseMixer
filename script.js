@@ -1,12 +1,13 @@
 // =======================================
-// NoiseMixer 3D — Point-Cloud Mandala Globe (module version)
+// NoiseMixer — 2D Mandala + 3D Globe Switcher
 // =======================================
 
 import * as THREE from "https://unpkg.com/three@0.162.0/build/three.module.js";
 
 // ---- DOM & HUD ----
 
-const canvas = document.getElementById("noiseCanvas");
+const canvas2d = document.getElementById("canvas2d");
+const canvas3d = document.getElementById("canvas3d");
 
 const sliders = {
   density: document.getElementById("density"),
@@ -52,34 +53,172 @@ function getEnergyNorm() {
 
 let paletteName = "mono";
 
-const palettes = {
+const palettesHex = {
   mono: 0xe5e7eb,
   warm: 0xfbbf24,
   neon: 0x22d3ee,
   magenta: 0xf472b6,
 };
 
-// ---- Three.js setup ----
+// 2D color helper
+function paletteColor2D(alpha) {
+  switch (paletteName) {
+    case "warm":
+      return `rgba(251, 191, 36, ${alpha})`;
+    case "neon":
+      return `rgba(34, 211, 238, ${alpha})`;
+    case "magenta":
+      return `rgba(244, 114, 182, ${alpha})`;
+    case "mono":
+    default:
+      return `rgba(229, 231, 235, ${alpha})`;
+  }
+}
+
+// ---- Shared sizing ----
+
+let width = window.innerWidth;
+let height = window.innerHeight;
+
+function updateSize() {
+  width = window.innerWidth;
+  height = window.innerHeight;
+}
+
+// ---- 2D Engine: Dot Mandala ----
+
+let ctx2d;
+let time2D = 0;
+let seed2D = Math.random() * 99999;
+let growthRadius2D = 0;
+
+function seededNoise2D(x) {
+  const n = Math.sin(x * 12.9898 + seed2D) * 43758.5453;
+  return n % 1;
+}
+
+function init2D() {
+  ctx2d = canvas2d.getContext("2d");
+  resize2D();
+  clear2D(false);
+}
+
+function resize2D() {
+  if (!ctx2d) return;
+  const dpr = window.devicePixelRatio || 1;
+  canvas2d.width = width * dpr;
+  canvas2d.height = height * dpr;
+  ctx2d.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+
+function clear2D(fade = true) {
+  if (!ctx2d) return;
+  if (!fade) {
+    ctx2d.fillStyle = "#000";
+    ctx2d.fillRect(0, 0, width, height);
+    return;
+  }
+  const energyNorm = getEnergyNorm();
+  const fadeStrength = lerp(0.02, 0.18, energyNorm);
+  ctx2d.fillStyle = `rgba(0,0,0,${fadeStrength})`;
+  ctx2d.fillRect(0, 0, width, height);
+}
+
+function drawMandala2D(dt) {
+  if (!ctx2d) return;
+
+  const cx = width / 2;
+  const cy = height / 2;
+
+  const densityFactor = state.density / 100;
+  const chaosFactor = state.chaos / 100;
+  const contrastFactor = state.contrast / 100;
+  const energyNorm = getEnergyNorm();
+
+  const maxRadius = Math.min(width, height) * 0.48;
+
+  // growth speed scaled by dt
+  const growthSpeed = lerp(5, 80, energyNorm);
+  growthRadius2D += growthSpeed * dt;
+
+  if (growthRadius2D > maxRadius + 12) {
+    growthRadius2D = 0;
+    time2D = 0;
+    seed2D = Math.random() * 99999;
+    clear2D(false);
+  }
+
+  clear2D(true);
+
+  const baseAlpha = lerp(0.2, 1, contrastFactor);
+  ctx2d.fillStyle = paletteColor2D(baseAlpha);
+
+  const slices = Math.round(lerp(6, 48, densityFactor));
+  const ringSpacing = lerp(32, 12, densityFactor);
+  const maxRings = Math.floor(maxRadius / ringSpacing);
+  const currentRings = Math.min(
+    maxRings,
+    Math.floor(growthRadius2D / ringSpacing)
+  );
+
+  const dotsPerRing = Math.round(lerp(40, 160, densityFactor));
+  const dotRadius = lerp(0.6, 2.2, contrastFactor);
+
+  for (let ring = 1; ring <= currentRings; ring++) {
+    const baseRadius = ring * ringSpacing;
+    const ringProgress = baseRadius / maxRadius;
+    const localChaos = chaosFactor * lerp(0.4, 1.0, ringProgress);
+
+    for (let i = 0; i < dotsPerRing; i++) {
+      const t = i / dotsPerRing;
+      const angleBase = t * Math.PI * 2;
+
+      let r =
+        baseRadius +
+        Math.sin(time2D * 0.6 + ring * 0.7 + t * 12.0) * localChaos * 18 +
+        (seededNoise2D(i + ring * 16.11) - 0.5) * localChaos * 24;
+
+      if (r < 3) r = 3;
+      if (r > maxRadius) r = maxRadius;
+
+      for (let s = 0; s < slices; s++) {
+        const sliceAngle = (s / slices) * Math.PI * 2;
+        const aBase = angleBase + sliceAngle;
+        const ang =
+          aBase +
+          Math.sin(ring * 0.5 + time2D * 0.5) * localChaos * 0.05;
+
+        const x = cx + r * Math.cos(ang);
+        const y = cy + r * Math.sin(ang);
+
+        ctx2d.beginPath();
+        ctx2d.arc(x, y, dotRadius, 0, Math.PI * 2);
+        ctx2d.fill();
+      }
+    }
+  }
+
+  const timeStep2D = lerp(0.4, 3.0, energyNorm);
+  time2D += timeStep2D * dt;
+}
+
+// ---- 3D Engine: Point-Cloud Globe ----
 
 let renderer, scene, camera, globeGroup;
 let particleGeometry, particleMaterial, particlePoints;
 let particleMeta = { rings: 0, perRing: 0, total: 0 };
 
-let width = window.innerWidth;
-let height = window.innerHeight;
+let time3D = 0;
+let seed3D = Math.random() * 99999;
 
-let time = 0;
-let masterSeed = Math.random() * 99999;
-
-// stable pseudo-random
-function seededNoise(x) {
-  const n = Math.sin(x * 12.9898 + masterSeed) * 43758.5453;
+function seededNoise3D(x) {
+  const n = Math.sin(x * 12.9898 + seed3D) * 43758.5453;
   return n % 1;
 }
 
-function initThree() {
+function init3D() {
   renderer = new THREE.WebGLRenderer({
-    canvas,
+    canvas: canvas3d,
     antialias: true,
   });
   renderer.setPixelRatio(window.devicePixelRatio || 1);
@@ -134,7 +273,7 @@ function buildParticleSystem(config) {
     sizeAttenuation: true,
     transparent: true,
     opacity: lerp(0.45, 1, contrastNorm),
-    color: palettes[paletteName] || palettes.mono,
+    color: palettesHex[paletteName] || palettesHex.mono,
     depthWrite: false,
   });
 
@@ -143,28 +282,17 @@ function buildParticleSystem(config) {
 
   particleMeta = { ...config };
 
-  // Initialize positions so you see something immediately
-  updateParticles(0);
+  updateParticles3D(0);
 }
 
-// ---- Resize ----
-
-function handleResize() {
-  width = window.innerWidth;
-  height = window.innerHeight;
-
+function resize3D() {
   if (!renderer || !camera) return;
-
   renderer.setSize(width, height, true);
   camera.aspect = width / height;
   camera.updateProjectionMatrix();
 }
 
-window.addEventListener("resize", handleResize);
-
-// ---- Particle update ----
-
-function updateParticles(dt) {
+function updateParticles3D(dt) {
   if (!particleGeometry) return;
 
   const cfg = computeParticleConfig();
@@ -182,8 +310,8 @@ function updateParticles(dt) {
   let i = 0;
 
   for (let ring = 0; ring < rings; ring++) {
-    const ringNorm = (ring + 0.5) / rings; // 0..1
-    let phi = ringNorm * Math.PI; // polar
+    const ringNorm = (ring + 0.5) / rings;
+    let phi = ringNorm * Math.PI;
 
     const equatorProximity = 1 - Math.abs(ringNorm - 0.5) * 2;
     const ringChaos = chaosFactor * lerp(0.3, 1.1, equatorProximity);
@@ -195,26 +323,26 @@ function updateParticles(dt) {
       const baseIndex = ring * perRing + j;
 
       const nPhase =
-        time * 0.8 +
+        time3D * 0.8 +
         ring * 0.7 +
         u * 14.0 +
-        seededNoise(baseIndex * 3.17) * Math.PI * 2;
+        seededNoise3D(baseIndex * 3.17) * Math.PI * 2;
 
       const lobes = Math.round(lerp(4, 16, state.density / 100));
-      const lobeWave = Math.cos(theta * lobes + time * 0.6);
+      const lobeWave = Math.cos(theta * lobes + time3D * 0.6);
 
       const angleOffset = ringChaos * 0.12 * Math.sin(nPhase);
       theta += angleOffset;
 
       const phiOffset =
-        ringChaos * 0.18 * lobeWave * Math.sin(time * 0.4 + ring * 0.3);
+        ringChaos * 0.18 * lobeWave * Math.sin(time3D * 0.4 + ring * 0.3);
       const phiLocal = phi + phiOffset;
 
       const radiusBreath =
         0.12 *
-        Math.sin(time * lerp(0.3, 1.2, energyNorm) + ring * 0.4 + u * 5.0);
+        Math.sin(time3D * lerp(0.3, 1.2, energyNorm) + ring * 0.4 + u * 5.0);
       const chaosRadial =
-        ringChaos * 0.2 * (seededNoise(baseIndex * 1.91) - 0.5);
+        ringChaos * 0.2 * (seededNoise3D(baseIndex * 1.91) - 0.5);
       const radius =
         sphereRadius *
         (1 + radiusBreath * (0.5 + energyNorm) + chaosRadial);
@@ -233,34 +361,64 @@ function updateParticles(dt) {
   particleGeometry.attributes.position.needsUpdate = true;
 }
 
-// ---- Animation loop ----
-
-let isPlaying = true;
-let lastTime = performance.now();
-let animationId = null;
-
-function animate(now) {
-  if (!isPlaying || !renderer) return;
-
-  const dt = (now - lastTime) / 1000;
-  lastTime = now;
-
+function render3D(dt) {
   const energyNorm = getEnergyNorm();
   const timeStep = lerp(0.2, 3.0, energyNorm) * dt;
-  time += timeStep;
+  time3D += timeStep;
 
-  updateParticles(dt);
+  updateParticles3D(dt);
 
   const rotationSpeed = (state.energy / 100) * 0.6;
   globeGroup.rotation.y += rotationSpeed * dt;
   globeGroup.rotation.x += rotationSpeed * 0.15 * dt;
 
   renderer.render(scene, camera);
-
-  animationId = requestAnimationFrame(animate);
 }
 
-// ---- HUD interactions ----
+// ---- View switching ----
+
+let activeView = "2d"; // default to 2D
+let isPlaying = true;
+let lastTime = performance.now();
+let animationId = null;
+
+const viewButtons = document.querySelectorAll(".view-btn");
+
+function setView(view) {
+  activeView = view === "3d" ? "3d" : "2d";
+
+  viewButtons.forEach((btn) =>
+    btn.classList.toggle("active", btn.dataset.view === activeView)
+  );
+
+  canvas2d.classList.toggle("hidden", activeView !== "2d");
+  canvas3d.classList.toggle("hidden", activeView !== "3d");
+}
+
+viewButtons.forEach((btn) => {
+  btn.addEventListener("click", () => {
+    setView(btn.dataset.view);
+  });
+});
+
+// ---- Main loop ----
+
+function loop(now) {
+  const dt = (now - lastTime) / 1000;
+  lastTime = now;
+
+  if (isPlaying) {
+    if (activeView === "2d") {
+      drawMandala2D(dt);
+    } else if (activeView === "3d") {
+      render3D(dt);
+    }
+  }
+
+  animationId = requestAnimationFrame(loop);
+}
+
+// ---- Sliders & palette ----
 
 Object.entries(sliders).forEach(([key, input]) => {
   input.addEventListener("input", () => {
@@ -269,7 +427,6 @@ Object.entries(sliders).forEach(([key, input]) => {
   });
 });
 
-// Palette
 document.querySelectorAll(".palette-swatch").forEach((swatch) => {
   swatch.addEventListener("click", () => {
     paletteName = swatch.dataset.palette || "mono";
@@ -279,38 +436,38 @@ document.querySelectorAll(".palette-swatch").forEach((swatch) => {
     );
 
     if (particleMaterial) {
-      particleMaterial.color.setHex(palettes[paletteName] || palettes.mono);
+      particleMaterial.color.setHex(
+        palettesHex[paletteName] || palettesHex.mono
+      );
     }
   });
 });
 
-// Play / pause
+// ---- Play / pause ----
+
 const togglePlayBtn = document.getElementById("togglePlay");
 togglePlayBtn.addEventListener("click", () => {
   isPlaying = !isPlaying;
   togglePlayBtn.textContent = isPlaying ? "Pause" : "Play";
-
-  if (isPlaying && !animationId) {
-    lastTime = performance.now();
-    animationId = requestAnimationFrame(animate);
-  } else if (!isPlaying && animationId) {
-    cancelAnimationFrame(animationId);
-    animationId = null;
-  }
 });
 
-// ---- Capture frame ----
+// ---- Capture & Recording use ACTIVE canvas ----
+
+function getActiveCanvas() {
+  return activeView === "3d" ? canvas3d : canvas2d;
+}
 
 const captureBtn = document.getElementById("captureFrame");
 captureBtn.addEventListener("click", () => {
-  canvas.toBlob(
+  const c = getActiveCanvas();
+  c.toBlob(
     (blob) => {
       if (!blob) return;
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
       const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-      a.download = `NoiseMixer_Globe_${timestamp}.png`;
+      a.download = `NoiseMixer_${activeView}_${timestamp}.png`;
       a.click();
       URL.revokeObjectURL(url);
     },
@@ -319,8 +476,6 @@ captureBtn.addEventListener("click", () => {
   );
 });
 
-// ---- Video recording (WebM) ----
-
 const recordBtn = document.getElementById("recordVideo");
 let mediaRecorder = null;
 let recordedChunks = [];
@@ -328,7 +483,8 @@ let isRecording = false;
 
 recordBtn.addEventListener("click", () => {
   if (!isRecording) {
-    const stream = canvas.captureStream(30);
+    const c = getActiveCanvas();
+    const stream = c.captureStream(30);
     recordedChunks = [];
 
     try {
@@ -351,7 +507,7 @@ recordBtn.addEventListener("click", () => {
       const a = document.createElement("a");
       a.href = url;
       const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-      a.download = `NoiseMixer_Globe_${timestamp}.webm`;
+      a.download = `NoiseMixer_${activeView}_${timestamp}.webm`;
       a.click();
       URL.revokeObjectURL(url);
     };
@@ -381,9 +537,20 @@ fullscreenBtn.addEventListener("click", () => {
   }
 });
 
+// ---- Resize ----
+
+window.addEventListener("resize", () => {
+  updateSize();
+  resize2D();
+  resize3D();
+});
+
 // ---- Init ----
 
+updateSize();
 updateSliderLabels();
-initThree();
+init2D();
+init3D();
+setView("2d"); // start in 2D
 lastTime = performance.now();
-animationId = requestAnimationFrame(animate);
+animationId = requestAnimationFrame(loop);

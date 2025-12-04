@@ -12,6 +12,16 @@ let sliders = {};
 let sliderLabels = {};
 let state;
 
+let autoMode = false;
+let audioContext, analyser, freqArray;
+let audioVolume = 0; // smoothed volume
+// Smoothed levels
+let audioLow = 0;
+let audioMid = 0;
+let audioHigh = 0;
+let audioRms = 0;
+
+
 let paletteName = "mono";
 const palettesHex = {
   mono: 0xe5e7eb,
@@ -381,6 +391,78 @@ function loop(now) {
     }
   }
 
+  // ---- AUTO MODE PARAMETER MODULATION (BAND-BASED) ----
+  if (autoMode && analyser) {
+    analyser.getByteFrequencyData(freqArray);
+  
+    const len = freqArray.length;
+  
+    // Split into rough bands: low (bass), mid, high
+    const lowEnd = Math.floor(len * 0.15);   // ~0–15%
+    const midEnd = Math.floor(len * 0.6);    // ~15–60%, rest = highs
+  
+    let lowSum = 0, lowCount = 0;
+    let midSum = 0, midCount = 0;
+    let highSum = 0, highCount = 0;
+    let totalSum = 0;
+  
+    for (let i = 0; i < len; i++) {
+      const v = freqArray[i];
+      totalSum += v;
+  
+      if (i < lowEnd) {
+        lowSum += v;
+        lowCount++;
+      } else if (i < midEnd) {
+        midSum += v;
+        midCount++;
+      } else {
+        highSum += v;
+        highCount++;
+      }
+    }
+  
+    const lowAvg = lowCount ? lowSum / lowCount : 0;
+    const midAvg = midCount ? midSum / midCount : 0;
+    const highAvg = highCount ? highSum / highCount : 0;
+    const rms = totalSum / len;
+  
+    // Smooth each band
+    const smooth = (prev, target, factor = 0.15) =>
+      prev * (1 - factor) + target * factor;
+  
+    audioLow  = smooth(audioLow,  lowAvg);
+    audioMid  = smooth(audioMid,  midAvg);
+    audioHigh = smooth(audioHigh, highAvg);
+    audioRms  = smooth(audioRms,  rms);
+  
+    // Normalize 0–1 (tuned, not strict)
+    const nLow  = Math.min(audioLow  / 120, 1);
+    const nMid  = Math.min(audioMid  / 130, 1);
+    const nHigh = Math.min(audioHigh / 140, 1);
+    const nRms  = Math.min(audioRms  / 140, 1);
+  
+    // MAP TO PARAMETERS:
+    // Bass (low) -> Energy
+    state.energy = Math.round(-20 + nLow * 120);  // -20 → 100
+  
+    // Mids -> Chaos
+    state.chaos = Math.round(nMid * 90);          // 0 → ~90
+  
+    // Highs -> Contrast
+    state.contrast = Math.round(nHigh * 100);     // 0 → 100
+  
+    // Overall loudness -> Density
+    state.density = Math.round(20 + nRms * 80);   // 20 → 100
+  
+    updateSliderLabels();
+    // Update 3D particle size when Contrast changes
+    if (typeof update3DMaterial === "function") {
+      update3DMaterial();
+    }
+  }
+
+
   animationId = requestAnimationFrame(loop);
 }
 
@@ -440,6 +522,49 @@ window.addEventListener("load", () => {
       }
     });
   });
+
+  const autoModeBtn = document.getElementById("autoMode");
+
+  autoModeBtn.addEventListener("click", async () => {
+    if (!autoMode) {
+      // Turn ON auto mode
+      autoMode = true;
+      autoModeBtn.textContent = "Auto Mode: ON 🎤";
+  
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        audioContext = new AudioContext();
+        const source = audioContext.createMediaStreamSource(stream);
+  
+        analyser = audioContext.createAnalyser();
+        analyser.fftSize = 512;
+  
+        source.connect(analyser);
+  
+        freqArray = new Uint8Array(analyser.frequencyBinCount);
+  
+      } catch (err) {
+        console.error("Microphone access denied:", err);
+        autoMode = false;
+        autoModeBtn.textContent = "Auto Mode 🎤";
+        return;
+      }
+  
+      // Disable manual sliders
+      Object.values(sliders).forEach(sl => sl.disabled = true);
+  
+    } else {
+      // Turn OFF auto mode
+      autoMode = false;
+      autoModeBtn.textContent = "Auto Mode 🎤";
+  
+      if (audioContext) audioContext.close();
+  
+      // Re-enable manual sliders
+      Object.values(sliders).forEach(sl => sl.disabled = false);
+    }
+  });
+
 
   // Palette
   document.querySelectorAll(".palette-swatch").forEach((swatch) => {
@@ -576,6 +701,8 @@ window.addEventListener("load", () => {
   lastTime = performance.now();
   animationId = requestAnimationFrame(loop);
 });
+
+
 
 
 

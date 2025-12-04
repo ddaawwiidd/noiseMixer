@@ -12,6 +12,10 @@ let sliders = {};
 let sliderLabels = {};
 let state;
 
+let autoMode = false;
+let audioContext, analyser, freqArray;
+let audioVolume = 0; // smoothed volume
+
 let paletteName = "mono";
 const palettesHex = {
   mono: 0xe5e7eb,
@@ -381,6 +385,31 @@ function loop(now) {
     }
   }
 
+  // ---- AUTO MODE PARAMETER MODULATION ----
+  if (autoMode && analyser) {
+    analyser.getByteFrequencyData(freqArray);
+  
+    // Compute volume as average magnitude
+    let sum = 0;
+    for (let i = 0; i < freqArray.length; i++) sum += freqArray[i];
+    let volume = sum / freqArray.length;
+  
+    // Smooth signal
+    audioVolume = audioVolume * 0.85 + volume * 0.15;
+  
+    // NORMALIZED 0–1
+    const v = Math.min(audioVolume / 140, 1);
+  
+    // MAP TO PARAMETERS
+    state.energy   = Math.round(-20 + v * 120);  // -20 → 100
+    state.chaos    = Math.round(v * 80);         // 0 → 80
+    state.contrast = Math.round(v * 100);        // 0 → 100
+    state.density  = Math.round(20 + v * 80);    // 20 → 100
+  
+    updateSliderLabels();
+    update3DMaterial?.(); // safe for 3D mode
+  }
+
   animationId = requestAnimationFrame(loop);
 }
 
@@ -440,6 +469,49 @@ window.addEventListener("load", () => {
       }
     });
   });
+
+  const autoModeBtn = document.getElementById("autoMode");
+
+  autoModeBtn.addEventListener("click", async () => {
+    if (!autoMode) {
+      // Turn ON auto mode
+      autoMode = true;
+      autoModeBtn.textContent = "Auto Mode: ON 🎤";
+  
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        audioContext = new AudioContext();
+        const source = audioContext.createMediaStreamSource(stream);
+  
+        analyser = audioContext.createAnalyser();
+        analyser.fftSize = 512;
+  
+        source.connect(analyser);
+  
+        freqArray = new Uint8Array(analyser.frequencyBinCount);
+  
+      } catch (err) {
+        console.error("Microphone access denied:", err);
+        autoMode = false;
+        autoModeBtn.textContent = "Auto Mode 🎤";
+        return;
+      }
+  
+      // Disable manual sliders
+      Object.values(sliders).forEach(sl => sl.disabled = true);
+  
+    } else {
+      // Turn OFF auto mode
+      autoMode = false;
+      autoModeBtn.textContent = "Auto Mode 🎤";
+  
+      if (audioContext) audioContext.close();
+  
+      // Re-enable manual sliders
+      Object.values(sliders).forEach(sl => sl.disabled = false);
+    }
+  });
+
 
   // Palette
   document.querySelectorAll(".palette-swatch").forEach((swatch) => {
@@ -576,6 +648,7 @@ window.addEventListener("load", () => {
   lastTime = performance.now();
   animationId = requestAnimationFrame(loop);
 });
+
 
 
 

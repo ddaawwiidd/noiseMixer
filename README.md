@@ -34,6 +34,9 @@ You can capture still frames or record live video directly from the canvas.
   - Density, Energy, Chaos, Contrast sliders  
   - Palette selector (Mono, Warm, Neon, Magenta)
 
+- **Audio-Reactive Auto Mode**
+  - Dynamically adjusts visual parameters based on the sound in your environment
+    
 - **Live video recording**
   - Uses `MediaRecorder` to capture the animation to WebM
   - Ideal for capturing live mixing sessions

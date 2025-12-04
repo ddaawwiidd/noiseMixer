@@ -4,6 +4,7 @@
 
 import * as THREE from "https://unpkg.com/three@0.162.0/build/three.module.js";
 
+let updateSliderLabels = () => {};
 // ---- Global vars that will be filled after DOM is ready ----
 
 let canvas2d, canvas3d;
@@ -561,3 +562,4 @@ window.addEventListener("load", () => {
   lastTime = performance.now();
   animationId = requestAnimationFrame(loop);
 });
+

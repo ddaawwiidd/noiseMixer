@@ -190,6 +190,7 @@ function init3D() {
   renderer = new THREE.WebGLRenderer({
     canvas: canvas3d,
     antialias: true,
+    preserveDrawingBuffer: true,
   });
   renderer.setPixelRatio(window.devicePixelRatio || 1);
   renderer.setSize(width, height, true);
@@ -575,6 +576,7 @@ window.addEventListener("load", () => {
   lastTime = performance.now();
   animationId = requestAnimationFrame(loop);
 });
+
 
 
 

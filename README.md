@@ -1,9 +1,12 @@
-# 🎛️ NoiseMixer — Generative Mandala Engine
+# 🎛️ NoiseMixer — Generative Mandala & Particle Globe Visual Engine
 
-NoiseMixer is a web-based generative art instrument that creates evolving
-**dot-based mandalas** from the centre of the screen outward.  
-The UI is minimal, allowing the user to “mix” the
-visual growth in real time using a set of intuitive sliders.
+NoiseMixer is a web-based generative art instrument that lets you mix algorithmic visuals in real time.
+You can switch between:
+- 2D Mode → evolving mandala built from noise-driven rings and slices
+- 3D Mode → particle globe made from thousands of orbiting dots
+
+Both modes react to your Mixer controls, palettes, and energy dynamics.
+NoiseMixer is designed as a tiny VJ tool, creative playground, and a foundation for future algorithmic art experiments.
 
 You can capture still frames or record live video directly from the canvas.
 
@@ -11,13 +14,23 @@ You can capture still frames or record live video directly from the canvas.
 
 ## ✨ Features
 
-- **Generative dot mandala engine**
-  - Radial symmetry
-  - Organic wobble and noise-driven evolution
-  - Slow or fast bloom controlled by Energy slider (supports negative values)
+- **Dual Visual Engines** 
+  - **2D Mandala**
+  - Built from concentric rings
+  - Dot patterns driven by seeded noise
+  - Symmetry & slice logic
+  - Organic growth controlled by Energy
+  - Fade-in/out trails
 
-- **HUD-style control panel**
-  - Compact, bottom-centered, monochrome design  
+  - **3D Particle Globe**
+  - Hundreds to thousands of orbiting points
+  - Spherical noise deformation
+  - Energy-driven auto-rotation
+  - Contrast slider controls point size
+  - Minimalist cosmic aesthetic
+
+
+- **HUD-style control panel** 
   - Density, Energy, Chaos, Contrast sliders  
   - Palette selector (Mono, Warm, Neon, Magenta)
 
@@ -39,26 +52,13 @@ You can capture still frames or record live video directly from the canvas.
 
 ## 🎛️ Controls
 
-### **Density**
-Controls structural complexity:
-- Low → minimal, airy mandalas  
-- High → dense, intricate patterns  
+| Control      | 2D Mode                | 3D Mode                   |
+| ------------ | ---------------------- | ------------------------- |
+| **Density**  | number of rings / dots | number of rings × points  |
+| **Energy**   | growth speed           | auto-rotation speed       |
+| **Chaos**    | deformation amplitude  | spherical noise intensity |
+| **Contrast** | brightness & dot size  | particle size             |
 
-### **Energy (supports negative values)**  
-Controls bloom speed and time progression:
-- **Negative** → extremely slow, meditative growth  
-- Zero → slow bloom  
-- High → fast expansion and more dynamic oscillation  
-
-### **Chaos**  
-Controls wobble, noise amplitude and organic distortion:
-- Low → symmetrical, stable rings  
-- High → noisy, organic, fluid movement  
-
-### **Contrast**  
-Controls dot brightness and dot size:
-- Low → soft, subdued  
-- High → crisp, bright, bold  
 
 ### **Palette**
 Choose between:

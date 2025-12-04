@@ -16,18 +16,18 @@ You can capture still frames or record live video directly from the canvas.
 
 - **Dual Visual Engines** 
   - **2D Mandala**
-  - Built from concentric rings
-  - Dot patterns driven by seeded noise
-  - Symmetry & slice logic
-  - Organic growth controlled by Energy
-  - Fade-in/out trails
+    - Built from concentric rings
+    - Dot patterns driven by seeded noise
+    - Symmetry & slice logic
+    - Organic growth controlled by Energy
+    - Fade-in/out trails
 
   - **3D Particle Globe**
-  - Hundreds to thousands of orbiting points
-  - Spherical noise deformation
-  - Energy-driven auto-rotation
-  - Contrast slider controls point size
-  - Minimalist cosmic aesthetic
+    - Hundreds to thousands of orbiting points
+    - Spherical noise deformation
+    - Energy-driven auto-rotation
+    - Contrast slider controls point size
+    - Minimalist cosmic aesthetic
 
 
 - **HUD-style control panel** 

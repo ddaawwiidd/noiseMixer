@@ -240,20 +240,13 @@ function buildParticleSystem(config) {
   // SIZE: small → large
   const size = lerp(0.015, 0.12, contrastNorm);
 
-  // BRIGHTNESS: dim → bright
-  const brightness = lerp(0.3, 1.5, contrastNorm);
-
-  // Convert hex to color
-  const baseColor = new THREE.Color(palettesHex[paletteName] || palettesHex.mono);
-  const brightColor = baseColor.clone().multiplyScalar(brightness);
-
   particleMaterial = new THREE.PointsMaterial({
-    size,
-    sizeAttenuation: true,
-    transparent: true,
-    opacity: lerp(0.35, 1, contrastNorm),
-    color: brightColor,
-    depthWrite: false,
+  size,
+  sizeAttenuation: true,
+  transparent: true,
+  opacity: 0.9, // keep brightness constant
+  color: palettesHex[paletteName] || palettesHex.mono,
+  depthWrite: false,
   });
 
   particlePoints = new THREE.Points(particleGeometry, particleMaterial);
@@ -262,6 +255,13 @@ function buildParticleSystem(config) {
   particleMeta = { ...config };
 
   updateParticles3D(0);
+}
+
+function update3DMaterial() {
+  if (!particleMaterial) return;
+  const contrastNorm = state.contrast / 100;
+  particleMaterial.size = lerp(0.015, 0.12, contrastNorm);
+  particleMaterial.needsUpdate = true;
 }
 
 function resize3D() {
@@ -433,6 +433,10 @@ window.addEventListener("load", () => {
     input.addEventListener("input", () => {
       state[key] = parseInt(input.value, 10);
       updateSliderLabels();
+
+      if (key === "contrast") {
+      update3DMaterial();
+      }
     });
   });
 
@@ -571,5 +575,6 @@ window.addEventListener("load", () => {
   lastTime = performance.now();
   animationId = requestAnimationFrame(loop);
 });
+
 
 

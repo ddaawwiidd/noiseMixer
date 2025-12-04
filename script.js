@@ -236,14 +236,23 @@ function buildParticleSystem(config) {
   );
 
   const contrastNorm = state.contrast / 100;
-  const size = lerp(0.025, 0.08, contrastNorm);
+
+  // SIZE: small → large
+  const size = lerp(0.015, 0.12, contrastNorm);
+
+  // BRIGHTNESS: dim → bright
+  const brightness = lerp(0.3, 1.5, contrastNorm);
+
+  // Convert hex to color
+  const baseColor = new THREE.Color(palettesHex[paletteName] || palettesHex.mono);
+  const brightColor = baseColor.clone().multiplyScalar(brightness);
 
   particleMaterial = new THREE.PointsMaterial({
     size,
     sizeAttenuation: true,
     transparent: true,
-    opacity: lerp(0.45, 1, contrastNorm),
-    color: palettesHex[paletteName] || palettesHex.mono,
+    opacity: lerp(0.35, 1, contrastNorm),
+    color: brightColor,
     depthWrite: false,
   });
 
@@ -562,4 +571,5 @@ window.addEventListener("load", () => {
   lastTime = performance.now();
   animationId = requestAnimationFrame(loop);
 });
+
 

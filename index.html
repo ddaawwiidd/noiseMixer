@@ -8,7 +8,8 @@
   </head>
   <body>
     <div class="app">
-      <canvas id="noiseCanvas"></canvas>
+      <canvas id="canvas2d" class="visual-layer"></canvas>
+      <canvas id="canvas3d" class="visual-layer hidden"></canvas>
 
       <div class="control-panel">
         <header class="panel-header">
@@ -41,7 +42,16 @@
             <input type="range" id="contrast" min="0" max="100" value="80" />
           </div>
         </section>
-
+        
+        <!-- View: 2D / 3D -->
+        <section class="panel-section">
+          <h2>View</h2>
+          <div class="mode-toggle">
+            <button class="btn secondary view-btn active" data-view="2d">2D</button>
+            <button class="btn secondary view-btn" data-view="3d">3D</button>
+          </div>
+        </section>
+        
         <!-- Palette stays -->
         <section class="panel-section">
           <h2>Palette</h2>
@@ -67,7 +77,7 @@
         </section>
       </div>
     </div>
-
-    <script src="script.js"></script>
+    <script type="module" src="script.js"></script>
   </body>
 </html>
+
